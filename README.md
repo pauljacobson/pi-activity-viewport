@@ -134,6 +134,10 @@ npm outdated              # Review available dependency updates
 
 The three Pi development dependencies are updated and tested as one compatibility set. Their runtime counterparts remain peer dependencies because Pi provides them when loading the package.
 
+## Built with agents
+
+This extension was designed, implemented, tested, and documented with the assistance of AI coding agents.
+
 ## Project status
 
 This package is currently marked `private` and is intended to be installed from a local or Git checkout rather than published to npm.
