@@ -4,6 +4,9 @@ Activity Viewport is a TypeScript extension for [Pi](https://github.com/earendil
 
 It replaces each turn's expanding activity stream with a bounded, scrollable viewport while leaving completed assistant responses in Pi's normal transcript.
 
+<img width="3426" height="1506" alt="pi-activity-window_screenshot" src="https://github.com/user-attachments/assets/3624d2a7-65c8-4d9b-8c62-1dc701691720" />
+
+
 ## What it does
 
 - Groups assistant thinking, tool calls, intermediate text, and live status by user turn.
