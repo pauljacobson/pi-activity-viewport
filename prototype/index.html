@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi Activity Window — UI Prototype</title>
+  <!-- PROTOTYPE — Four variants of a bounded Pi activity surface, switchable via ?variant=. -->
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d12;
+      --panel: #11141c;
+      --panel-2: #151925;
+      --line: #292f40;
+      --soft-line: #202534;
+      --text: #e6e9f2;
+      --muted: #8d94a8;
+      --dim: #5f6679;
+      --accent: #8b9cff;
+      --cyan: #70d7e7;
+      --green: #78dba9;
+      --amber: #edc477;
+      --pink: #e89bc7;
+      --red: #ef8690;
+      --shadow: 0 22px 70px rgba(0,0,0,.48);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: radial-gradient(circle at 50% -20%, #222844 0, var(--bg) 42%); color: var(--text); overflow: hidden; }
+    button { font: inherit; }
+    .prototype-note {
+      position: fixed; top: 14px; left: 18px; z-index: 50; color: var(--muted);
+      font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .prototype-note b { color: var(--amber); font-weight: 600; }
+    .stage { height: 100%; display: grid; place-items: center; padding: 42px 34px 94px; }
+    .terminal {
+      width: min(1180px, 100%); height: min(760px, 100%); min-height: 560px;
+      border: 1px solid #33394c; border-radius: 13px; overflow: hidden; background: #0c0f15;
+      box-shadow: var(--shadow); display: flex; flex-direction: column; position: relative;
+    }
+    .terminal-top {
+      height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 7px; padding: 0 13px;
+      background: #151821; border-bottom: 1px solid var(--soft-line); color: var(--dim); font-size: 11px;
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #394052; }
+    .terminal-title { position: absolute; left: 50%; transform: translateX(-50%); }
+    .pi-body { min-height: 0; flex: 1; position: relative; display: flex; flex-direction: column; }
+    .transcript { min-height: 0; flex: 1; overflow: hidden; padding: 24px 26px; position: relative; }
+    .transcript:after { content: ""; position: absolute; inset: auto 0 0; height: 44px; background: linear-gradient(transparent, #0c0f15); pointer-events: none; }
+    .msg { max-width: 780px; font-size: 13px; line-height: 1.58; margin-bottom: 20px; }
+    .user-msg { margin-left: auto; padding: 10px 14px; border-left: 2px solid var(--accent); background: #171b26; border-radius: 6px; color: #f1f2f7; }
+    .assistant-msg p { margin: 0 0 9px; }
+    .assistant-msg .lead { color: var(--cyan); }
+    .code { padding: 10px 12px; background: #10131a; border: 1px solid var(--soft-line); border-radius: 5px; color: #b7c0d8; }
+    .editor-wrap { flex: 0 0 auto; padding: 0 18px 8px; background: #0c0f15; position: relative; z-index: 5; }
+    .editor {
+      min-height: 70px; border: 1px solid #3a4053; border-left: 3px solid var(--accent); border-radius: 7px;
+      padding: 12px 14px 9px; color: var(--dim); background: #10131a; font-size: 13px;
+    }
+    .editor-meta { display: flex; justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 10px; }
+    .footer {
+      flex: 0 0 27px; padding: 0 20px 8px; display: flex; align-items: flex-end; justify-content: space-between;
+      color: var(--dim); font-size: 10px; background: #0c0f15; position: relative; z-index: 5;
+    }
+    .footer .branch { color: var(--pink); }
+    .footer .context { color: var(--amber); }
+
+    .activity {
+      border: 1px solid var(--line); background: rgba(17,20,28,.98); color: var(--text); overflow: hidden;
+    }
+    .activity-head { display: flex; align-items: center; gap: 9px; min-height: 36px; padding: 0 12px; border-bottom: 1px solid var(--soft-line); }
+    .activity-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .activity-count { color: var(--dim); font-size: 10px; }
+    .activity-spacer { flex: 1; }
+    .icon-btn { border: 0; background: transparent; color: var(--muted); padding: 5px; cursor: pointer; border-radius: 4px; }
+    .icon-btn:hover { color: var(--text); background: #242a39; }
+    .activity-list { padding: 8px 11px 10px; font-size: 11px; line-height: 1.45; }
+    .activity-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 2px; color: #bbc1d1; }
+    .activity-row + .activity-row { border-top: 1px solid #1d2230; }
+    .activity-row strong { display: block; color: #e2e6f0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-row small { display: block; color: var(--dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-time { color: var(--dim); font-size: 9px; padding-top: 2px; }
+    .thinking { color: var(--accent); }
+    .tool { color: var(--green); }
+    .working { color: var(--amber); }
+    .pulse { animation: pulse 1.3s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+    .scroll-fade { position: absolute; pointer-events: none; }
+
+    /* A — bottom activity dock */
+    .variant-a .transcript { padding-bottom: 12px; }
+    .variant-a .activity {
+      flex: 0 0 180px; margin: 0 18px 8px; border-radius: 7px; position: relative; z-index: 6;
+    }
+    .variant-a .activity-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; max-height: 142px; overflow: hidden; }
+    .variant-a .activity-row:nth-child(3) { border-top: 1px solid #1d2230; }
+    .variant-a .activity:after { content: "bounded activity dock · 3 more hidden"; position: absolute; right: 11px; bottom: 6px; color: var(--dim); font-size: 9px; }
+
+    /* B — split view rail */
+    .variant-b .workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 330px; }
+    .variant-b .transcript { height: 100%; }
+    .variant-b .activity { margin: 14px 16px 12px 0; border-radius: 7px; min-height: 0; display: flex; flex-direction: column; }
+    .variant-b .activity-list { overflow: hidden; flex: 1; }
+    .variant-b .activity-head { min-height: 42px; }
+    .variant-b .rail-summary { padding: 10px 13px; border-top: 1px solid var(--soft-line); color: var(--dim); font-size: 10px; }
+    .variant-b .editor-wrap, .variant-b .footer { margin-right: 346px; }
+
+    /* C — activity island */
+    .variant-c .activity-island {
+      position: absolute; z-index: 15; left: 50%; bottom: 120px; transform: translateX(-50%); width: min(640px, calc(100% - 70px));
+    }
+    .variant-c .activity { border-radius: 10px; box-shadow: 0 15px 40px rgba(0,0,0,.46); }
+    .variant-c .activity-list { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 7px 10px 9px; }
+    .variant-c .activity-row { display: block; border: 0 !important; padding: 5px 9px; border-right: 1px solid #242a39 !important; }
+    .variant-c .activity-row:last-child { border-right: 0 !important; }
+    .variant-c .activity-row .row-line { display: flex; gap: 7px; }
+    .variant-c .activity-row small { margin-left: 23px; }
+    .variant-c .activity-time { display: none; }
+    .variant-c .island-tab { position: absolute; right: 10px; bottom: -25px; color: var(--dim); font-size: 9px; }
+
+    /* D — compact viewport replacing noisy detail */
+    .variant-d .activity {
+      width: min(760px, calc(100% - 52px)); height: 228px; margin: 3px 0 18px; border-radius: 8px; position: relative;
+    }
+    .variant-d .activity-list { height: 149px; overflow: hidden; padding-left: 14px; }
+    .variant-d .activity-row { max-width: 650px; }
+    .variant-d .activity-foot { height: 40px; border-top: 1px solid var(--soft-line); padding: 8px 12px; display: flex; gap: 8px; align-items: center; }
+    .activity-chip { border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 3px 8px; font-size: 9px; }
+    .activity-chip.live { color: var(--amber); border-color: #5b4b2e; }
+
+    .annotation {
+      position: absolute; z-index: 30; pointer-events: none; color: var(--amber); font: 10px/1.35 ui-monospace, monospace;
+    }
+    .annotation:after { content: ""; display: block; width: 68px; border-top: 1px solid currentColor; margin-top: 5px; opacity: .55; }
+    .variant-a .annotation { right: 34px; bottom: 272px; text-align: right; }
+    .variant-a .annotation:after { margin-left: auto; }
+    .variant-b .annotation { right: 52px; top: 73px; }
+    .variant-c .annotation { right: 55px; bottom: 330px; text-align: right; }
+    .variant-c .annotation:after { margin-left: auto; }
+    .variant-d .annotation { right: 50px; top: 190px; text-align: right; }
+    .variant-d .annotation:after { margin-left: auto; }
+
+    .switcher {
+      position: fixed; z-index: 100; left: 50%; bottom: 20px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px; padding: 7px; background: rgba(231,234,244,.96); color: #171a22;
+      border-radius: 999px; box-shadow: 0 10px 35px rgba(0,0,0,.45); font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    .switcher button { width: 34px; height: 30px; border: 0; border-radius: 999px; background: transparent; cursor: pointer; color: #2a2d38; }
+    .switcher button:hover { background: #d4d8e4; }
+    .switch-label { min-width: 230px; text-align: center; font-size: 12px; font-weight: 650; }
+    .switch-kicker { display: block; color: #6a6f7e; font-size: 9px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 1px; }
+
+    .variant-description {
+      position: fixed; right: 18px; top: 12px; z-index: 50; max-width: 390px; text-align: right;
+      font: 11px/1.4 ui-sans-serif, system-ui, sans-serif; color: var(--muted);
+    }
+    .variant-description strong { color: var(--text); }
+
+    @media (max-width: 850px) {
+      .stage { padding-inline: 10px; }
+      .variant-description { display: none; }
+      .variant-b .workspace { grid-template-columns: 1fr; }
+      .variant-b .activity { position: absolute; z-index: 20; right: 8px; top: 8px; width: 300px; height: 390px; margin: 0; box-shadow: var(--shadow); }
+      .variant-b .editor-wrap, .variant-b .footer { margin-right: 0; }
+      .variant-a .activity-list { grid-template-columns: 1fr; }
+      .variant-a .activity-row:nth-child(n+4) { display: none; }
+      .variant-c .activity-list { grid-template-columns: 1fr; }
+      .variant-c .activity-row:nth-child(n+2) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-note"><b>Throwaway prototype</b> · Pi bounded activity</div>
+  <div class="variant-description" id="variantDescription"></div>
+  <main class="stage">
+    <section class="terminal" id="terminal">
+      <header class="terminal-top">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="terminal-title">pi · ~/Git/Projects/atlas</span>
+      </header>
+      <div class="pi-body" id="piBody"></div>
+    </section>
+  </main>
+  <nav class="switcher" aria-label="Prototype variants">
+    <button id="prev" aria-label="Previous variant">←</button>
+    <div class="switch-label"><span class="switch-kicker">Use ← → to compare</span><span id="variantLabel"></span></div>
+    <button id="next" aria-label="Next variant">→</button>
+  </nav>
+
+  <template id="transcriptTemplate">
+    <div class="msg user-msg">Could you trace the authentication flow and simplify the token refresh logic?</div>
+    <div class="msg assistant-msg">
+      <p><span class="lead">I’ll map the flow first, then isolate the refresh paths.</span></p>
+      <p>The entry point is in <span style="color:var(--pink)">src/auth/session.ts</span>. There are two refresh paths: an eager refresh during bootstrap and a reactive refresh after a 401.</p>
+      <div class="code">export async function getSession() {<br>&nbsp;&nbsp;const cached = await readSession();<br>&nbsp;&nbsp;return cached?.expired ? refresh(cached) : cached;<br>}</div>
+    </div>
+    <div class="msg assistant-msg"><p>I found the duplication. Both paths can use one coordinator while preserving the existing retry behavior.</p></div>
+  </template>
+
+  <script>
+    const variants = [
+      { key: 'A', name: 'Bottom activity dock', desc: 'A fixed-height dock keeps activity close to the editor. The transcript retains full width and never grows when tools emit more output.' },
+      { key: 'B', name: 'Side activity rail', desc: 'A persistent split view separates durable conversation from ephemeral execution. Best on wide terminals and for long-running agents.' },
+      { key: 'C', name: 'Floating activity island', desc: 'A compact heads-up surface hovers above the editor and shows only the latest state from each activity type.' },
+      { key: 'D', name: 'Inline bounded viewport', desc: 'Activity stays in transcript chronology, but one fixed-height viewport absorbs all intermediate thinking and tool output.' },
+    ];
+    let current = getVariant();
+
+    function getVariant() {
+      const key = new URLSearchParams(location.search).get('variant')?.toUpperCase();
+      const index = variants.findIndex(v => v.key === key);
+      return index < 0 ? 0 : index;
+    }
+
+    function transcript() {
+      const holder = document.createElement('div');
+      holder.className = 'transcript';
+      holder.append(document.getElementById('transcriptTemplate').content.cloneNode(true));
+      return holder;
+    }
+
+    function activityRows(limit = 6) {
+      const rows = [
+        ['thinking', '◌', 'Tracing session lifecycle', 'Following bootstrap → cache → refresh', 'now'],
+        ['tool', '✓', 'read · src/auth/session.ts', '146 lines · 4.1 KB', '2s'],
+        ['tool', '✓', 'grep · "refreshToken"', '7 matches across 4 files', '3s'],
+        ['thinking', '◌', 'Comparing retry semantics', 'Checking race and cancellation behavior', 'now'],
+        ['tool', '↗', 'read · src/auth/coordinator.ts', 'Streaming lines 1–98', 'now'],
+        ['working', '●', 'Agent is working', 'Next: consolidate refresh paths', '18s'],
+      ].slice(0, limit);
+      return rows.map(([kind, icon, title, sub, time]) => `
+        <div class="activity-row">
+          <div class="row-line"><span class="${kind} ${time === 'now' ? 'pulse' : ''}">${icon}</span><span><strong>${title}</strong><small>${sub}</small></span></div>
+          <span class="activity-time">${time}</span>
+        </div>`).join('');
+    }
+
+    function activity(title = 'Agent activity', limit = 6) {
+      const el = document.createElement('section');
+      el.className = 'activity';
+      el.innerHTML = `<div class="activity-head"><span class="working pulse">●</span><span class="activity-title">${title}</span><span class="activity-count">6 events</span><span class="activity-spacer"></span><button class="icon-btn" title="Pause activity">Ⅱ</button><button class="icon-btn" title="Expand activity">↗</button></div><div class="activity-list">${activityRows(limit)}</div>`;
+      return el;
+    }
+
+    function editorAndFooter() {
+      const frag = document.createDocumentFragment();
+      const editor = document.createElement('div');
+      editor.className = 'editor-wrap';
+      editor.innerHTML = `<div class="editor">Ask a follow-up…<div class="editor-meta"><span>openai-codex · gpt-5.6-sol</span><span>thinking: medium</span></div></div>`;
+      const footer = document.createElement('div');
+      footer.className = 'footer';
+      footer.innerHTML = `<span>atlas <span class="branch">on  ui/activity-window</span></span><span><span class="context">context 28%</span> · ↑ 12.4k ↓ 2.1k · $0.084</span>`;
+      frag.append(editor, footer);
+      return frag;
+    }
+
+    function annotation(text) {
+      const el = document.createElement('div');
+      el.className = 'annotation';
+      el.textContent = text;
+      return el;
+    }
+
+    function render() {
+      const data = variants[current];
+      const body = document.getElementById('piBody');
+      const terminal = document.getElementById('terminal');
+      body.replaceChildren();
+      terminal.className = `terminal variant-${data.key.toLowerCase()}`;
+
+      if (data.key === 'A') {
+        body.append(transcript());
+        body.append(activity());
+        body.append(editorAndFooter());
+        body.append(annotation('Fixed 180px; internal history, not terminal scroll'));
+      }
+      if (data.key === 'B') {
+        const workspace = document.createElement('div');
+        workspace.className = 'workspace';
+        const rail = activity('Live execution');
+        rail.insertAdjacentHTML('beforeend', '<div class="rail-summary">6 completed · 2 active · elapsed 00:18</div>');
+        workspace.append(transcript(), rail);
+        body.append(workspace, editorAndFooter(), annotation('Independent activity rail'));
+      }
+      if (data.key === 'C') {
+        body.append(transcript());
+        const island = document.createElement('div');
+        island.className = 'activity-island';
+        island.append(activity('Working', 3));
+        island.insertAdjacentHTML('beforeend', '<span class="island-tab">⌘J opens full activity history</span>');
+        body.append(island, editorAndFooter(), annotation('Latest-state summary; expands on demand'));
+      }
+      if (data.key === 'D') {
+        const t = transcript();
+        const viewport = activity('Activity viewport', 4);
+        viewport.insertAdjacentHTML('beforeend', '<div class="activity-foot"><span class="activity-chip live">● live</span><span class="activity-chip">thinking 2</span><span class="activity-chip">tools 4</span><span class="activity-spacer"></span><span class="activity-chip">open full log ↗</span></div>');
+        const messages = t.querySelectorAll('.msg');
+        messages[1].after(viewport);
+        body.append(t, editorAndFooter(), annotation('Chronological, but height-capped'));
+      }
+
+      document.getElementById('variantLabel').textContent = `${data.key} — ${data.name}`;
+      document.getElementById('variantDescription').innerHTML = `<strong>${data.name}</strong><br>${data.desc}`;
+      const url = new URL(location.href);
+      url.searchParams.set('variant', data.key);
+      history.replaceState({}, '', url);
+    }
+
+    function cycle(delta) { current = (current + delta + variants.length) % variants.length; render(); }
+    document.getElementById('prev').addEventListener('click', () => cycle(-1));
+    document.getElementById('next').addEventListener('click', () => cycle(1));
+    document.addEventListener('keydown', event => {
+      if (['INPUT','TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
+      if (event.key === 'ArrowLeft') cycle(-1);
+      if (event.key === 'ArrowRight') cycle(1);
+    });
+    render();
+  </script>
+</body>
+</html>
