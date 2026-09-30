@@ -6,14 +6,14 @@ temp_dir=$(mktemp -d)
 trap 'rm -rf "$temp_dir"' EXIT
 
 cp "$repo_root/package.json" "$repo_root/tsconfig.json" "$temp_dir/"
-cp -R "$repo_root/extensions" "$repo_root/test" "$temp_dir/"
+cp -R "$repo_root/extensions" "$repo_root/test" "$repo_root/scripts" "$temp_dir/"
 
 cd "$temp_dir"
 
-# Install the normal toolchain first, then replace only the Pi packages with
-# their latest published versions. No lockfile or working-tree file is changed.
-npm install --ignore-scripts --package-lock=false
-npm install --ignore-scripts --package-lock=false --no-save \
+# Save the latest Pi versions in the temporary manifest so npm ls validates
+# the installed set instead of rejecting it against the repository's pins.
+# No lockfile or working-tree file is changed.
+npm install --ignore-scripts --package-lock=false --save-dev --save-exact \
   @earendil-works/pi-ai@latest \
   @earendil-works/pi-coding-agent@latest \
   @earendil-works/pi-tui@latest
